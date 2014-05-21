@@ -512,14 +512,14 @@ _mainloop(struct skynet_context * context, void * ud, int type, int session, uin
 				// update remote harbor address
 				char ip [sz - 11];
 				memcpy(ip, msg, sz-12);
-				ip[sz-11] = '\0';
+				ip[sz-12] = '\0';
 				_update_remote_address(h, header.destination, ip);
 			} else {
 				// update global name
 				if (sz - 12 > GLOBALNAME_LENGTH) {
 					char name[sz-11];
 					memcpy(name, msg, sz-12);
-					name[sz-11] = '\0';
+					name[sz-12] = '\0';
 					skynet_error(context, "Global name is too long %s", name);
 				}
 				_update_remote_name(h, msg, header.destination);
