@@ -55,6 +55,8 @@ init_winsock() {
 
 #define BSON_TYPE_SHIFT 5
 
+#define INVALID_BSON_STRING_LENGTH(len) (len < 1)
+
 static char bson_numstrs[MAX_NUMBER][4];
 static int bson_numstr_len[MAX_NUMBER];
 
@@ -534,6 +536,9 @@ unpack_dict(lua_State *L, struct bson_reader *br, bool array) {
 			break;
 		case BSON_STRING: {
 			int sz = read_int32(L, &t);
+			if (INVALID_BSON_STRING_LENGTH(sz)) {
+				return luaL_error(L, "Invalid bson string length: %d", sz);
+			}
 			lua_pushlstring(L, read_bytes(L, &t, sz), sz-1);
 			break;
 		}
@@ -667,6 +672,9 @@ lmakeindex(lua_State *L) {
 		case BSON_SYMBOL: 
 		case BSON_STRING: {
 			int sz = read_int32(L, &br);
+			if (INVALID_BSON_STRING_LENGTH(sz)) {
+				return luaL_error(L, "Invalid bson string length: %d", sz);
+			}
 			read_bytes(L, &br, sz);
 			break;
 		}
