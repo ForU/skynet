@@ -36,8 +36,7 @@ struct global_queue {
 	uint32_t head;
 	uint32_t tail;
 	struct message_queue ** queue;
-	bool * flag;
-
+	int lock;
 };
 
 static struct global_queue *Q = NULL;
@@ -51,32 +50,26 @@ static void
 skynet_globalmq_push(struct message_queue * queue) {
 	struct global_queue *q= Q;
 
-	uint32_t tail = GP(__sync_fetch_and_add(&q->tail,1));
+	LOCK(q)
+	uint32_t tail = q->tail;
 	q->queue[tail] = queue;
-	__sync_synchronize();
-	q->flag[tail] = true;
+	q->tail = GP(tail + 1);
+	UNLOCK(q)
 }
 
 struct message_queue * 
 skynet_globalmq_pop() {
 	struct global_queue *q = Q;
+
+	LOCK(q)
 	uint32_t head =  q->head;
-	uint32_t head_ptr = GP(head);
-	if (head_ptr == GP(q->tail)) {
+	if (head == q->tail) {
+		UNLOCK(q)
 		return NULL;
 	}
-
-	if(!q->flag[head_ptr]) {
-		return NULL;
-	}
-
-	__sync_synchronize();
-
-	struct message_queue * mq = q->queue[head_ptr];
-	if (!__sync_bool_compare_and_swap(&q->head, head, head+1)) {
-		return NULL;
-	}
-	q->flag[head_ptr] = false;
+	struct message_queue * mq = q->queue[head];
+	q->head = GP(head + 1);
+	UNLOCK(q)
 
 	return mq;
 }
@@ -242,8 +235,7 @@ skynet_mq_init() {
 	struct global_queue *q = skynet_malloc(sizeof(*q));
 	memset(q,0,sizeof(*q));
 	q->queue = skynet_malloc(MAX_GLOBAL_MQ * sizeof(struct message_queue *));
-	q->flag = skynet_malloc(MAX_GLOBAL_MQ * sizeof(bool));
-	memset(q->flag, 0, sizeof(bool) * MAX_GLOBAL_MQ);
+	q->lock = 0;
 	Q=q;
 }
 
